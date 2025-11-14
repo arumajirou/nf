@@ -1,0 +1,37 @@
+# コアパッケージ
+pandas>=2.0.0
+numpy>=1.23.0
+scipy>=1.10.0
+scikit-learn>=1.2.0
+
+# データベース
+SQLAlchemy>=2.0.0
+psycopg2-binary>=2.9.0
+
+# 時系列特徴量（基本セット）
+tsfresh>=0.20.0
+tsfel>=0.1.6
+pycatch22>=0.4.0
+antropy>=0.1.6
+statsmodels>=0.14.0
+
+# 異常検出
+pyod>=1.1.0
+
+# 並列処理
+ray[default]>=2.0.0
+dask[complete]>=2023.1.0
+
+# ユーティリティ
+PyYAML>=6.0
+tqdm>=4.65.0
+python-dateutil>=2.8.0
+jpholiday>=0.1.0
+
+# ロギング・監視
+coloredlogs>=15.0
+mlflow>=2.8.0
+
+# テスト
+pytest>=7.4.0
+pytest-cov>=4.1.0

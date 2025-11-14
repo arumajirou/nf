@@ -1,0 +1,54 @@
+# システムデフォルト設定
+
+system:
+  name: "Loto Feature Generation System"
+  version: "2.0.0"
+  
+# データベース接続（環境変数で上書き可能）
+database:
+  host: "${DB_HOST:localhost}"
+  port: "${DB_PORT:5432}"
+  database: "${DB_NAME:postgres}"
+  user: "${DB_USER:postgres}"
+  password: "${DB_PASSWORD:z}"
+  
+  # 接続プール
+  pool_size: 10
+  max_overflow: 20
+  pool_timeout: 30
+
+# 並列実行
+parallel:
+  use_ray: true
+  use_dask: false
+  n_workers: 4
+  
+  # GPU設定
+  use_gpu: false  # デフォルトはfalse（環境に応じて変更）
+  gpu_per_worker: 0.25
+  gpu_memory_limit: 4294967296  # 4GB
+
+# バッチ処理
+batch:
+  size: 8
+  prefetch: 2
+
+# キャッシング
+cache:
+  enabled: true
+  directory: "./cache"
+  ttl: 86400  # 24時間
+
+# ロギング
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/feature_generation.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+# エラーハンドリング
+error_handling:
+  mode: "warn"  # "raise", "warn", "ignore"
+  retry_attempts: 3
+  retry_delay: 5

@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# 仮想環境
+.venv/
+venv/
+env/
+
+# OS / エディタ系
+.DS_Store
+Thumbs.db
+.vscode/
+
+# ログや一時成果物
+*.log
+nf_auto_runs/

@@ -1,0 +1,62 @@
+# Core
+python>=3.9,<3.12
+
+# Web Framework
+streamlit>=1.28.0
+streamlit-option-menu>=0.3.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Machine Learning - NeuralForecast
+neuralforecast>=1.6.0
+torch>=2.0.0
+pytorch-lightning>=2.0.0
+
+# Hyperparameter Optimization
+optuna>=3.3.0
+ray[tune]>=2.7.0
+
+# Experiment Tracking
+mlflow>=2.8.0
+
+# Database
+psycopg2-binary>=2.9.0
+SQLAlchemy>=2.0.0
+alembic>=1.12.0
+
+# Resource Monitoring
+psutil>=5.9.0
+GPUtil>=1.4.0
+py3nvml>=0.2.7
+
+# Visualization
+plotly>=5.17.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Configuration
+PyYAML>=6.0
+python-dotenv>=1.0.0
+
+# Utilities
+tqdm>=4.65.0
+coloredlogs>=15.0
+python-dateutil>=2.8.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+
+# Development
+black>=23.7.0
+flake8>=6.1.0
+mypy>=1.5.0
+
+# Optional: GPU Support
+# cudf-cu11>=24.0.0  # Uncomment for GPU DataFrame support
+# cuml-cu11>=24.0.0  # Uncomment for GPU ML support
+# cupy-cuda11x>=12.0.0  # Uncomment for GPU array support

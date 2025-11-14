@@ -1,0 +1,8 @@
+# データベース接続設定
+# 実際の環境に合わせて編集してください
+
+host: localhost
+port: 5432
+database: postgres
+user: postgres
+password: z  # 本番環境では環境変数を使用してください

@@ -1,0 +1,64 @@
+# Model Configurations
+
+default_backends:
+  optuna:
+    num_samples: 50
+    use_pruning: true
+    timeout_hours: null
+  
+  ray:
+    num_samples: 50
+    use_pruning: true
+    timeout_hours: null
+
+resource_limits:
+  max_concurrent_runs: 5
+  default_cpus: 4
+  default_gpus: 1
+
+model_presets:
+  quick:
+    num_samples: 10
+    max_steps: 500
+    batch_size: 64
+  
+  balanced:
+    num_samples: 50
+    max_steps: 1000
+    batch_size: 128
+  
+  accurate:
+    num_samples: 100
+    max_steps: 2000
+    batch_size: 256
+
+supported_models:
+  - NHITS
+  - NBEATS
+  - TFT
+  - MLP
+  - DLinear
+  - TSMixer
+  - PatchTST
+  - Transformer
+  - DeepAR
+  - DeepNPTS
+  - NBEATSx
+  - BiTCN
+  - TiDE
+  - TimesNet
+  - TimeLLM
+  - StemGNN
+  - HINT
+  - LSTM
+  - GRU
+  - RNN
+  - TCN
+  - VanillaTransformer
+  - Informer
+  - Autoformer
+  - FEDformer
+  - iTransformer
+  - SOFTS
+  - MLPMultivariate
+  - TSMixerMultivariate

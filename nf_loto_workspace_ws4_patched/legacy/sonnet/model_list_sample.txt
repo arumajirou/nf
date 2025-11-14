@@ -1,0 +1,23 @@
+# モデルリストファイルのサンプル
+# 複数モデル比較用
+#
+# 使用方法:
+#   python multi_model_comparator.py model_list.txt
+#
+# 各行に1つのモデルディレクトリパスを記述
+# "#"で始まる行はコメント
+
+# 例: Windows
+# C:\Users\user\models\model1
+# C:\Users\user\models\model2
+# C:\Users\user\models\model3
+
+# 例: Linux/Mac
+# /home/user/models/model1
+# /home/user/models/model2
+# /home/user/models/model3
+
+# 実際のパスに置き換えてください
+/path/to/your/first/model
+/path/to/your/second/model
+/path/to/your/third/model

@@ -1,0 +1,17 @@
+# Database Configuration
+database:
+  host: localhost
+  port: 5432
+  database: postgres
+  user: postgres
+  password: z
+
+pool:
+  size: 10
+  max_overflow: 20
+  timeout: 30
+  recycle: 3600
+
+options:
+  echo: false
+  connect_timeout: 10

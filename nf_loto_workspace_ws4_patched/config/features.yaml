@@ -1,0 +1,26 @@
+# 統合特徴量設定（サンプル）
+dataset:
+  id_column: unique_id
+  time_column: ds
+  target_column: y
+
+features:
+  futr:
+    - futr_ds_year
+    - futr_ds_month
+    - futr_ds_dow
+  hist:
+    - hist_y_mean_w7
+    - hist_y_std_w7
+    - hist_y_mean_w30
+  stat:
+    - stat_y_mean
+    - stat_y_std
+
+presets:
+  light:
+    max_lags: 30
+    max_windows: 30
+  full:
+    max_lags: 120
+    max_windows: 365

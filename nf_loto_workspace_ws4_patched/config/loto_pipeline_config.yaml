@@ -1,0 +1,101 @@
+# パイプライン設定
+
+pipelines:
+  # P1: Basic Statistics Pipeline
+  basic_stats:
+    enabled: true
+    priority: 1
+    feature_type: "hist"
+    config:
+      lag_windows: [1, 2, 3, 7, 14, 21, 28, 30, 60]
+      rolling_windows: [3, 7, 14, 21, 30, 60, 90]
+      rolling_stats: ["mean", "std", "min", "max", "median", "q25", "q75"]
+      
+  # P2: Rolling Windows Pipeline
+  rolling_windows:
+    enabled: true
+    priority: 2
+    feature_type: "hist"
+    config:
+      windows: [3, 7, 14, 21, 30, 60, 90]
+      stats: ["iqr", "z_score", "abs_diff_from_mean"]
+      
+  # P3: Lag & Difference Pipeline
+  lag_diff:
+    enabled: true
+    priority: 3
+    feature_type: "hist"
+    config:
+      lags: [1, 2, 3, 7, 14, 21, 28, 30, 60]
+      diff_periods: [1, 2, 3, 7, 14, 21, 28, 30, 60]
+      pct_change_periods: [1, 2, 3, 7, 14, 21, 28, 30, 60]
+      
+  # P4: Trend & Seasonality Pipeline
+  trend_seasonality:
+    enabled: true
+    priority: 4
+    feature_type: "hist"
+    config:
+      use_stl: true
+      stl_period: 7
+      polynomial_degrees: [1, 2, 3]
+      
+  # P5: Autocorrelation Pipeline
+  autocorrelation:
+    enabled: true
+    priority: 5
+    feature_type: "hist"
+    config:
+      acf_lags: [1, 7, 14]
+      pacf_lags: [1, 7, 14]
+      rolling_windows: [30, 60]
+      rolling_lags: [1, 7, 14]
+      
+  # P11: Anomaly Detection Pipeline
+  anomaly_detection:
+    enabled: true
+    priority: 11
+    feature_type: "hist"
+    config:
+      methods: ["zscore", "iqr", "isolation_forest", "local_outlier_factor"]
+      contamination: 0.1
+      
+  # P12: Calendar Features Pipeline
+  calendar_features:
+    enabled: true
+    priority: 12
+    feature_type: "futr"
+    config:
+      include_holiday: true
+      holiday_country: "JP"
+      fourier_orders:
+        - period: 7
+          orders: [1, 2, 3]
+        - period: 30.4375
+          orders: [1, 2, 3]
+        - period: 365.25
+          orders: [1, 2, 3]
+          
+  # P13: Lottery Domain Pipeline
+  lottery_domain:
+    enabled: true
+    priority: 13
+    feature_type: "hist"
+    config:
+      hot_cold_window: 30
+      consecutive_window: 7
+      
+  # P14: Static Features Pipeline
+  static_features:
+    enabled: true
+    priority: 14
+    feature_type: "stat"
+    config:
+      include_tsfeatures: true
+
+# グローバル設定
+global:
+  use_gpu: false
+  n_workers: 4
+  batch_size: 8
+  error_handling: "warn"

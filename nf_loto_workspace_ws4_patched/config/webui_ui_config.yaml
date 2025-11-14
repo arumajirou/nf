@@ -1,0 +1,32 @@
+# UI Configuration
+
+theme:
+  primary_color: "#4e73df"
+  secondary_color: "#1cc88a"
+  warning_color: "#f6c23e"
+  danger_color: "#e74a3b"
+  background_color: "#f8f9fc"
+
+layout:
+  sidebar_width: 250
+  content_max_width: 1200
+
+pagination:
+  default_page_size: 20
+  max_page_size: 100
+
+upload:
+  max_file_size_mb: 500
+  allowed_extensions:
+    - csv
+    - parquet
+    - xlsx
+
+monitoring:
+  update_interval_sec: 2
+  chart_history_points: 100
+
+notifications:
+  enabled: true
+  position: "top-right"
+  duration_sec: 5
