@@ -1,2 +1,0 @@
-C:\Users\hashimoto.ryohei\Downloads\zip\unzipped_model\model\dir(data_long)_parent_dir(N_features)_loto(bingo5)_model(AutoiTransformer)_N(1)_unique_id(N7)_h(1)_loss(HuberLoss())_local_scaler_type(minmax)_num(10000)_freq(D)_num_samples(40)_backend(optuna)_val_rate(6)_cols(32)_rows(1000)
-C:\Users\hashimoto.ryohei\Downloads\zip\unzipped_model\model\dir(data_long)_parent_dir(N_features)_loto(loto6)_model(AutoTSMixer)_N(1)_unique_id(N1)_h(1)_loss(HuberLoss())_local_scaler_type(minmax)_num(10000)_freq(D)_num_samples(40)_backend(optuna)_val_rate(6)_cols(16)_rows(10000)

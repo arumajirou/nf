@@ -1,0 +1,565 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="5" skipped="0" tests="138" time="22.194" timestamp="2025-11-17T14:22:23.794866+09:00" hostname="tpj0201817"><testcase classname="tests.ml.test_model_registry" name="test_model_registry_module_present" time="0.171" /><testcase classname="tests.nonfunctional.test_minimal_performance_smoke" name="test_minimal_performance_smoke_with_stubbed_automodel" time="1.835"><failure message="pandas.errors.DatabaseError: Execution failed on sql '&#10;        SELECT *&#10;        FROM nf_loto_panel&#10;        WHERE loto = %s&#10;          AND unique_id IN (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)&#10;        ORDER BY unique_id, ds&#10;    ': リレーション&quot;nf_loto_panel&quot;は存在しません&#10;LINE 3:         FROM nf_loto_panel&#10;                     ^">self = &lt;pandas.io.sql.SQLiteDatabase object at 0x00000291C079E290&gt;
+sql = '\n        SELECT *\n        FROM nf_loto_panel\n        WHERE loto = %s\n          AND unique_id IN (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)\n        ORDER BY unique_id, ds\n    '
+params = ['loto6', 'series_0', 'series_1', 'series_2', 'series_3', 'series_4', ...]
+
+    def execute(self, sql: str | Select | TextClause, params=None):
+        if not isinstance(sql, str):
+            raise TypeError("Query must be a string unless using sqlalchemy.")
+        args = [] if params is None else [params]
+        cur = self.con.cursor()
+        try:
+&gt;           cur.execute(sql, *args)
+E           psycopg2.errors.UndefinedTable: リレーション"nf_loto_panel"は存在しません
+E           LINE 3:         FROM nf_loto_panel
+E                                ^
+
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\io\sql.py:2674: UndefinedTable
+
+The above exception was the direct cause of the following exception:
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x00000291C0778390&gt;
+
+    @pytest.mark.nonfunctional
+    @pytest.mark.slow
+    def test_minimal_performance_smoke_with_stubbed_automodel(monkeypatch):
+        """run_loto_experiment が小規模設定で一定時間内に完了することをスモーク確認。
+    
+        - 実際の NeuralForecast AutoModel は heavy なので、テストでは build_auto_model と
+          build_neuralforecast をスタブして高速化している。
+        - DB アクセスも避けるため、loto_repository.load_panel_by_loto をスタブして
+          100 × 30 日程度の極小パネルを返す。
+        """
+    
+        from nf_loto_platform.db import loto_repository  # import here for monkeypatch target
+    
+        H = 7  # 1 週間先までの予測
+        unique_ids = [f"series_{i}" for i in range(10)]
+        dates = pd.date_range("2024-01-01", periods=30, freq="D")
+        records = []
+        for uid in unique_ids:
+            y = np.random.randn(len(dates))
+            for ds, val in zip(dates, y):
+                records.append({"unique_id": uid, "ds": ds, "y": float(val)})
+        panel_df = pd.DataFrame.from_records(records)
+    
+        # --- DB リポジトリのスタブ ---
+        def _fake_load_panel_by_loto(table_name: str, loto: str, unique_ids_param):
+            # 引数がちゃんと渡っていることをざっくり確認
+            assert table_name == "nf_loto_panel"
+            assert set(unique_ids_param) == set(unique_ids)
+            return panel_df
+    
+        monkeypatch.setattr(
+            "nf_loto_platform.db.loto_repository.load_panel_by_loto",
+            _fake_load_panel_by_loto,
+        )
+    
+        # --- AutoModel / NeuralForecast のスタブ ---
+        def _fake_build_auto_model(
+            model_name: str,
+            backend: str,
+            h: int,
+            loss_name: str,
+            num_samples: int,
+            search_space=None,
+            early_stop=None,
+            early_stop_patience_steps: int = 3,
+            verbose: bool = True,
+        ):
+            # 引数がそれなりに渡っていることだけ確認して dummy を返す
+            assert h == H
+            assert num_samples == 1
+            return _DummyAutoModel(h=h)
+    
+        def _fake_build_neuralforecast(model, freq: str, local_scaler_type: str | None):
+            # 本来は NeuralForecast インスタンスを作るが、ここではそのまま model を返す
+            return model
+    
+        monkeypatch.setattr(
+            "nf_loto_platform.ml.automodel_builder.build_auto_model",
+            _fake_build_auto_model,
+        )
+        monkeypatch.setattr(
+            "nf_loto_platform.ml.automodel_builder.build_neuralforecast",
+            _fake_build_neuralforecast,
+        )
+    
+        # --- 実行 &amp; 時間計測 ---
+        start = time.perf_counter()
+&gt;       preds, meta = run_loto_experiment(
+            table_name="nf_loto_panel",
+            loto="loto6",
+            unique_ids=unique_ids,
+            model_name="AutoNHITS",
+            backend="local",
+            horizon=H,
+            loss="mae",
+            metric="mae",
+            num_samples=1,
+            cpus=1,
+            gpus=0,
+            search_space=None,
+            freq="D",
+            local_scaler_type="robust",
+            val_size=7,
+            refit_with_val=False,
+            use_init_models=False,
+            early_stop=True,
+            early_stop_patience_steps=1,
+        )
+
+tests\nonfunctional\test_minimal_performance_smoke.py:118: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src\nf_loto_platform\ml\model_runner.py:186: in run_loto_experiment
+    panel_df = load_panel_by_loto(table_name=table_name, loto=loto, unique_ids=unique_ids)
+src\nf_loto_platform\db\loto_repository.py:106: in load_panel_by_loto
+    df = pd.read_sql(query, conn, params=params)
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\io\sql.py:706: in read_sql
+    return pandas_sql.read_query(
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\io\sql.py:2738: in read_query
+    cursor = self.execute(sql, params)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;pandas.io.sql.SQLiteDatabase object at 0x00000291C079E290&gt;
+sql = '\n        SELECT *\n        FROM nf_loto_panel\n        WHERE loto = %s\n          AND unique_id IN (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)\n        ORDER BY unique_id, ds\n    '
+params = ['loto6', 'series_0', 'series_1', 'series_2', 'series_3', 'series_4', ...]
+
+    def execute(self, sql: str | Select | TextClause, params=None):
+        if not isinstance(sql, str):
+            raise TypeError("Query must be a string unless using sqlalchemy.")
+        args = [] if params is None else [params]
+        cur = self.con.cursor()
+        try:
+            cur.execute(sql, *args)
+            return cur
+        except Exception as exc:
+            try:
+                self.con.rollback()
+            except Exception as inner_exc:  # pragma: no cover
+                ex = DatabaseError(
+                    f"Execution failed on sql: {sql}\n{exc}\nunable to rollback"
+                )
+                raise ex from inner_exc
+    
+            ex = DatabaseError(f"Execution failed on sql '{sql}': {exc}")
+&gt;           raise ex from exc
+E           pandas.errors.DatabaseError: Execution failed on sql '
+E                   SELECT *
+E                   FROM nf_loto_panel
+E                   WHERE loto = %s
+E                     AND unique_id IN (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+E                   ORDER BY unique_id, ds
+E               ': リレーション"nf_loto_panel"は存在しません
+E           LINE 3:         FROM nf_loto_panel
+E                                ^
+
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\io\sql.py:2686: DatabaseError</failure></testcase><testcase classname="tests.ml_analysis.test_metrics" name="test_pinball_loss_monotonic_in_q" time="0.002"><failure message="assert 0.45 &lt;= 0.25">def test_pinball_loss_monotonic_in_q():
+        y = [0.0, 1.0, 2.0]
+        yhat = [0.5, 1.5, 2.5]
+        v_low = metrics.pinball_loss(y, yhat, q=0.1)
+        v_mid = metrics.pinball_loss(y, yhat, q=0.5)
+        v_high = metrics.pinball_loss(y, yhat, q=0.9)
+&gt;       assert v_low &lt;= v_mid &lt;= v_high
+E       assert 0.45 &lt;= 0.25
+
+tests\ml_analysis\test_metrics.py:37: AssertionError</failure></testcase><testcase classname="tests.ml_analysis.test_metrics" name="test_mae_and_rmse_on_constant_offset" time="0.001" /><testcase classname="tests.ml_analysis.test_metrics" name="test_coverage_basic" time="0.001" /><testcase classname="tests.ml_analysis.test_metrics" name="test_smape_basic_symmetry" time="0.001" /><testcase classname="tests.ml_analysis.test_metrics" name="test_mape_zero_guard" time="0.001" /><testcase classname="tests.ml_analysis.test_error_breakdown" name="test_build_time_series_metrics_basic" time="0.018" /><testcase classname="tests.ml_analysis.test_error_breakdown" name="test_build_error_breakdown_basic" time="0.009" /><testcase classname="tests.db.test_loto_pg_store_contract" name="test_loto_pg_store_module_exists" time="0.001" /><testcase classname="tests.logging_ext.test_db_logger_contract" name="test_db_logger_public_api_shape" time="0.001" /><testcase classname="tests.core.test_exceptions" name="test_exceptions_are_subclasses_of_exception" time="0.001" /><testcase classname="tests.db.test_loto_etl_pipeline" name="test_loto_etl_modules_exist" time="0.002" /><testcase classname="tests.test_smoke_imports" name="test_import_training_pipeline" time="0.001" /><testcase classname="tests.test_smoke_imports" name="test_import_package" time="0.001" /><testcase classname="tests.ml_analysis.test_experiment_tracking" name="test_start_run_with_params_no_mlflow" time="0.001" /><testcase classname="tests.ml_analysis.test_experiment_tracking" name="test_log_metrics_with_fake_mlflow" time="0.001" /><testcase classname="tests.ml_analysis.test_experiment_tracking" name="test_log_metrics_no_run_id" time="0.001" /><testcase classname="tests.ml_analysis.test_experiment_tracking" name="test_start_run_with_params_with_fake_mlflow" time="0.001" /><testcase classname="tests.logging_ext.test_wandb_logger" name="test_wandb_logger_module_present" time="0.001" /><testcase classname="tests.static.test_docs_references" name="test_docs_key_files_exist" time="0.002" /><testcase classname="tests.ml.test_automodel_builder" name="test_automodel_builder_module_present" time="0.001" /><testcase classname="tests.test_core_settings" name="test_load_db_config_returns_dict" time="0.005" /><testcase classname="tests.integration.test_training_with_mock_db" name="test_training_pipeline_with_mock_db_and_different_horizon" time="0.248"><failure message="TypeError: test_training_pipeline_with_mock_db_and_different_horizon.&lt;locals&gt;._fake_load_panel_by_loto() got an unexpected keyword argument 'unique_ids'">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x00000291C2352150&gt;
+
+    @pytest.mark.integration
+    def test_training_pipeline_with_mock_db_and_different_horizon(monkeypatch):
+        """別パラメータ (horizon 3) でも end-to-end で動くことを確認する追加ケース。"""
+        H = 3
+        unique_ids = ["mock_series_2"]
+    
+        dates = pd.date_range("2024-02-01", periods=10, freq="D")
+        values = np.linspace(100.0, 101.0, num=len(dates))
+        panel_df = pd.DataFrame(
+            {
+                "unique_id": unique_ids[0],
+                "ds": dates,
+                "y": values,
+            }
+        )
+    
+        def _fake_load_panel_by_loto(table_name: str, loto: str, unique_ids_param):
+            assert loto == "loto7"
+            assert list(unique_ids_param) == unique_ids
+            return panel_df
+    
+        monkeypatch.setattr(
+            "nf_loto_platform.ml.model_runner.load_panel_by_loto",
+            _fake_load_panel_by_loto,
+        )
+    
+        def _fake_build_auto_model(
+            model_name: str,
+            backend: str,
+            h: int,
+            loss_name: str,
+            num_samples: int,
+            search_space=None,
+            early_stop=None,
+            early_stop_patience_steps: int = 3,
+            verbose: bool = True,
+        ):
+            return _DummyAutoModel(h=h)
+    
+        def _fake_build_neuralforecast(model, freq: str, local_scaler_type: str | None):
+            return model
+    
+        monkeypatch.setattr(
+            "nf_loto_platform.ml.automodel_builder.build_auto_model",
+            _fake_build_auto_model,
+        )
+        monkeypatch.setattr(
+            "nf_loto_platform.ml.automodel_builder.build_neuralforecast",
+            _fake_build_neuralforecast,
+        )
+    
+&gt;       preds, meta = run_loto_experiment(
+            table_name="nf_loto_panel",
+            loto="loto7",
+            unique_ids=unique_ids,
+            model_name="AutoNHITS",
+            backend="local",
+            horizon=H,
+            loss="mae",
+            metric="mae",
+            num_samples=1,
+            cpus=1,
+            gpus=0,
+            search_space=None,
+            freq="D",
+            local_scaler_type="robust",
+            val_size=3,
+            refit_with_val=False,
+            use_init_models=False,
+            early_stop=True,
+            early_stop_patience_steps=1,
+        )
+
+tests\integration\test_training_with_mock_db.py:199: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+table_name = 'nf_loto_panel'
+loto = 'loto7'
+unique_ids = ['mock_series_2']
+model_name = 'AutoNHITS', backend = 'local'
+horizon = 3, loss = 'mae', metric = 'mae'
+num_samples = 1, cpus = 1, gpus = 0
+search_space = None, freq = 'D'
+local_scaler_type = 'robust', val_size = 3
+refit_with_val = False
+use_init_models = False, early_stop = True
+early_stop_patience_steps = 1
+
+    def run_loto_experiment(
+        table_name: str,
+        loto: str,
+        unique_ids: Sequence[str],
+        model_name: str,
+        backend: str,
+        horizon: int,
+        loss: str,
+        metric: str,
+        num_samples: int,
+        cpus: int = 1,
+        gpus: int = 0,
+        search_space: Optional[Dict[str, Any]] = None,
+        freq: str = "D",
+        local_scaler_type: Optional[str] = "robust",
+        val_size: Optional[int] = None,
+        refit_with_val: bool = True,
+        use_init_models: bool = False,
+        early_stop: Optional[bool] = True,
+        early_stop_patience_steps: int = 3,
+    ) -&gt; Tuple[pd.DataFrame, Dict[str, Any]]:
+        """単一設定で AutoModel 実験を 1 回実行し、予測結果とメタ情報を返す。
+    
+        verbose=True / loss==valid_loss は automodel_builder 側で設定。
+        """
+        start_ts = time.time()
+        # Prometheus metrics サーバを必要に応じて起動 (複数回呼ばれても安全)
+        try:
+            init_metrics_server(port=int(os.getenv("NF_METRICS_PORT", "8000")))
+        except Exception:  # noqa: BLE001
+            # 監視系の初期化失敗で実験本体が落ちないようにする
+            pass
+    
+        start_resources = collect_resource_snapshot()
+        system_info = _system_info()
+    
+        optimization_config = {
+            "backend": backend,
+            "num_samples": num_samples,
+            "cpus": cpus,
+            "gpus": gpus,
+            "val_size": val_size,
+            "refit_with_val": refit_with_val,
+            "use_init_models": use_init_models,
+            "early_stop": early_stop,
+            "early_stop_patience_steps": early_stop_patience_steps,
+        }
+    
+        run_id = log_run_start(
+            table_name=table_name,
+            loto=loto,
+            unique_ids=unique_ids,
+            model_name=model_name,
+            backend=backend,
+            horizon=horizon,
+            loss=loss,
+            metric=metric,
+            optimization_config=optimization_config,
+            search_space=search_space or {},
+            resource_snapshot=start_resources,
+            system_info=system_info,
+        )
+    
+        # Prometheus: 実行開始を通知
+        observe_run_start(model_name=model_name, backend=backend)
+    
+        try:
+&gt;           panel_df = load_panel_by_loto(table_name=table_name, loto=loto, unique_ids=unique_ids)
+E           TypeError: test_training_pipeline_with_mock_db_and_different_horizon.&lt;locals&gt;._fake_load_panel_by_loto() got an unexpected keyword argument 'unique_ids'
+
+src\nf_loto_platform\ml\model_runner.py:186: TypeError</failure></testcase><testcase classname="tests.integration.test_training_with_mock_db" name="test_training_pipeline_with_mock_db_and_stubbed_automodel" time="0.159"><failure message="TypeError: test_training_pipeline_with_mock_db_and_stubbed_automodel.&lt;locals&gt;._fake_load_panel_by_loto() got an unexpected keyword argument 'unique_ids'">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x00000291C2325910&gt;
+
+    @pytest.mark.integration
+    def test_training_pipeline_with_mock_db_and_stubbed_automodel(monkeypatch):
+        """DB リポジトリ + model_runner を結合した軽量統合テスト。
+    
+        - DB アクセスは loto_repository.load_panel_by_loto をスタブして差し替える
+        - NeuralForecast AutoModel は automodel_builder の build_* を dummy に置換
+        - run_loto_experiment が end-to-end で preds / meta を返すことを確認
+        """
+    
+        H = 5
+        unique_ids = ["mock_series"]
+    
+        dates = pd.date_range("2024-01-01", periods=20, freq="D")
+        values = np.linspace(0.0, 1.0, num=len(dates))
+        panel_df = pd.DataFrame(
+            {
+                "unique_id": unique_ids[0],
+                "ds": dates,
+                "y": values,
+            }
+        )
+    
+        # --- DB リポジトリのスタブ ---
+        def _fake_load_panel_by_loto(table_name: str, loto: str, unique_ids_param):
+            assert loto == "loto6"
+            assert list(unique_ids_param) == unique_ids
+            return panel_df
+    
+        monkeypatch.setattr(
+            "nf_loto_platform.ml.model_runner.load_panel_by_loto",
+            _fake_load_panel_by_loto,
+        )
+    
+        # --- AutoModel / NeuralForecast のスタブ ---
+        def _fake_build_auto_model(
+            model_name: str,
+            backend: str,
+            h: int,
+            loss_name: str,
+            num_samples: int,
+            search_space=None,
+            early_stop=None,
+            early_stop_patience_steps: int = 3,
+            verbose: bool = True,
+        ):
+            return _DummyAutoModel(h=h)
+    
+        def _fake_build_neuralforecast(model, freq: str, local_scaler_type: str | None):
+            return model
+    
+        monkeypatch.setattr(
+            "nf_loto_platform.ml.automodel_builder.build_auto_model",
+            _fake_build_auto_model,
+        )
+        monkeypatch.setattr(
+            "nf_loto_platform.ml.automodel_builder.build_neuralforecast",
+            _fake_build_neuralforecast,
+        )
+    
+&gt;       preds, meta = run_loto_experiment(
+            table_name="nf_loto_panel",
+            loto="loto6",
+            unique_ids=unique_ids,
+            model_name="AutoNHITS",
+            backend="local",
+            horizon=H,
+            loss="mae",
+            metric="mae",
+            num_samples=1,
+            cpus=1,
+            gpus=0,
+            search_space=None,
+            freq="D",
+            local_scaler_type="robust",
+            val_size=5,
+            refit_with_val=False,
+            use_init_models=False,
+            early_stop=True,
+            early_stop_patience_steps=1,
+        )
+
+tests\integration\test_training_with_mock_db.py:115: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+table_name = 'nf_loto_panel'
+loto = 'loto6'
+unique_ids = ['mock_series']
+model_name = 'AutoNHITS', backend = 'local'
+horizon = 5, loss = 'mae', metric = 'mae'
+num_samples = 1, cpus = 1, gpus = 0
+search_space = None, freq = 'D'
+local_scaler_type = 'robust', val_size = 5
+refit_with_val = False
+use_init_models = False, early_stop = True
+early_stop_patience_steps = 1
+
+    def run_loto_experiment(
+        table_name: str,
+        loto: str,
+        unique_ids: Sequence[str],
+        model_name: str,
+        backend: str,
+        horizon: int,
+        loss: str,
+        metric: str,
+        num_samples: int,
+        cpus: int = 1,
+        gpus: int = 0,
+        search_space: Optional[Dict[str, Any]] = None,
+        freq: str = "D",
+        local_scaler_type: Optional[str] = "robust",
+        val_size: Optional[int] = None,
+        refit_with_val: bool = True,
+        use_init_models: bool = False,
+        early_stop: Optional[bool] = True,
+        early_stop_patience_steps: int = 3,
+    ) -&gt; Tuple[pd.DataFrame, Dict[str, Any]]:
+        """単一設定で AutoModel 実験を 1 回実行し、予測結果とメタ情報を返す。
+    
+        verbose=True / loss==valid_loss は automodel_builder 側で設定。
+        """
+        start_ts = time.time()
+        # Prometheus metrics サーバを必要に応じて起動 (複数回呼ばれても安全)
+        try:
+            init_metrics_server(port=int(os.getenv("NF_METRICS_PORT", "8000")))
+        except Exception:  # noqa: BLE001
+            # 監視系の初期化失敗で実験本体が落ちないようにする
+            pass
+    
+        start_resources = collect_resource_snapshot()
+        system_info = _system_info()
+    
+        optimization_config = {
+            "backend": backend,
+            "num_samples": num_samples,
+            "cpus": cpus,
+            "gpus": gpus,
+            "val_size": val_size,
+            "refit_with_val": refit_with_val,
+            "use_init_models": use_init_models,
+            "early_stop": early_stop,
+            "early_stop_patience_steps": early_stop_patience_steps,
+        }
+    
+        run_id = log_run_start(
+            table_name=table_name,
+            loto=loto,
+            unique_ids=unique_ids,
+            model_name=model_name,
+            backend=backend,
+            horizon=horizon,
+            loss=loss,
+            metric=metric,
+            optimization_config=optimization_config,
+            search_space=search_space or {},
+            resource_snapshot=start_resources,
+            system_info=system_info,
+        )
+    
+        # Prometheus: 実行開始を通知
+        observe_run_start(model_name=model_name, backend=backend)
+    
+        try:
+&gt;           panel_df = load_panel_by_loto(table_name=table_name, loto=loto, unique_ids=unique_ids)
+E           TypeError: test_training_pipeline_with_mock_db_and_stubbed_automodel.&lt;locals&gt;._fake_load_panel_by_loto() got an unexpected keyword argument 'unique_ids'
+
+src\nf_loto_platform\ml\model_runner.py:186: TypeError</failure></testcase><testcase classname="tests.webui.test_webui_placeholder" name="test_webui_helper_api_exists_and_is_callable" time="0.850" /><testcase classname="tests.db.test_postgres_manager_public_api" name="test_postgres_manager_importable" time="0.007" /><testcase classname="tests.db.test_postgres_manager_public_api" name="test_postgres_manager_has_get_connection" time="0.001" /><testcase classname="tests.e2e.test_cli_nf_auto_runner_e2e" name="test_cli_nf_auto_runner_e2e_with_dummy_legacy_script" time="0.015" /><testcase classname="tests.db_metadata.test_schema_definitions" name="test_schema_definitions_has_model_runs" time="0.002" /><testcase classname="tests.nonfunctional.test_reproducibility_seed" name="test_reproducibility_seed_numpy_python" time="0.002" /><testcase classname="tests.nonfunctional.test_reproducibility_seed" name="test_reproducibility_seed_torch_linear" time="0.066" /><testcase classname="tests.e2e.test_webui_smoke" name="test_webui_smoke_import_and_flag" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_validate_invalid_unknown_engine_kind" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_neuralforecast_common_properties[AutoMLPMultivariate]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_list_neuralforecast_models_is_sorted" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_get_models_by_exogenous_support_hist_only" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_list_neuralforecast_models" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_neuralforecast_common_properties[AutoTFT]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_registry_validation_at_module_load" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_neuralforecast_common_properties[AutoNHITS]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_backward_compatibility_autonhits" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_tsfm_common_properties[Chronos2-ZeroShot]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_all_specs_are_frozen" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_tsfm_models_in_registry" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_chronos2_spec_basic_fields" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_validate_tsfm_models_pass" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_get_model_spec_nonexistent" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_tsfm_common_properties[TempoPFN-ZeroShot]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_validate_neuralforecast_models_pass" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_neuralforecast_common_properties[AutoMLP]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_validate_invalid_tsfm_unknown_engine_name" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_tsfm_common_properties[TimeGPT-ZeroShot]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_timegpt_spec_basic_fields" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_tempopfn_spec_exogenous" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_backward_compatibility_autotft" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_neuralforecast_common_properties[AutoPatchTST]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_neuralforecast_common_properties[AutoTimeMixer]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_neuralforecast_common_properties[AutoRNN]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_neuralforecast_models_still_present" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_neuralforecast_common_properties[AutoLSTM]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_validate_invalid_neuralforecast_has_engine_name" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_timegpt_spec_tsfm_fields" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_list_automodel_names_is_sorted" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_registry_contains_expected_count" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_get_models_by_exogenous_support_futr_required" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_tempopfn_spec_basic_fields" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_list_tsfm_models_is_sorted" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_timegpt_spec_exogenous" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_neuralforecast_common_properties[AutoNBEATS]" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_validate_invalid_tsfm_missing_engine_name" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_all_models_have_unique_names" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_chronos2_spec_tsfm_fields" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_chronos2_spec_exogenous" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_tempopfn_spec_tsfm_fields" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_get_models_by_exogenous_support_no_exogenous" time="0.001" /><testcase classname="tests.test_model_registry_tsfm" name="test_list_tsfm_models" time="0.001" /><testcase classname="tests.reports.test_html_reporter" name="test_html_reporter_generates_string" time="0.004" /><testcase classname="tests.db.test_db_config" name="test_db_config_module_exists" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path8]" time="0.003" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path17]" time="1.065" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path27]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path16]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path26]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path9]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path34]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path24]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path14]" time="0.003" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path25]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path35]" time="0.002" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path15]" time="0.002" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path30]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path20]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path10]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path21]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path31]" time="0.002" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path11]" time="0.002" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path13]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path23]" time="0.002" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path33]" time="0.002" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path12]" time="0.002" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path32]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path22]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path7]" time="0.002" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path28]" time="0.002" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path18]" time="2.367" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path29]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path19]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path6]" time="0.002" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path4]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path5]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path0]" time="0.003" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path1]" time="0.002" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path3]" time="0.001" /><testcase classname="tests.static.test_all_modules_importable" name="test_all_nf_loto_platform_modules_importable[module_path2]" time="0.001" /><testcase classname="tests.static.test_py_compile_all" name="test_all_python_files_are_compilable" time="0.315" /><testcase classname="tests.features.test_features_placeholder" name="test_add_lag_feature_basic_contract" time="0.013" /><testcase classname="tests.db.test_setup_postgres" name="test_setup_postgres_module_exists" time="0.001" /><testcase classname="tests.pipelines.test_training_pipeline" name="test_run_legacy_nf_auto_runner_executes_dummy_script" time="0.007" /><testcase classname="tests.pipelines.test_training_pipeline" name="test_run_legacy_nf_auto_runner_raises_when_missing" time="0.004" /><testcase classname="tests.db.test_loto_repository_contract" name="test_loto_repository_public_api" time="0.001" /><testcase classname="tests.logging_ext.test_mlflow_logger" name="test_mlflow_logger_module_present" time="0.001" /><testcase classname="tests.ml.test_model_runner_contract" name="test_model_runner_has_dataclass_result_type" time="0.001" /><testcase classname="tests.ml.test_model_runner_contract" name="test_model_runner_exposes_core_entrypoints" time="0.001" /><testcase classname="tests.monitoring.test_resource_monitor" name="test_resource_monitor_returns_dict_like" time="0.001" /><testcase classname="tests.db.test_postgres_manager_contract" name="test_postgres_manager_module_exists" time="0.001" /><testcase classname="tests.core.test_settings" name="test_load_db_config_returns_dict" time="0.004" /><testcase classname="tests.system.test_environment_contract" name="test_webui_import_contract" time="0.001" /><testcase classname="tests.system.test_environment_contract" name="test_notebooks_import_contract" time="0.001" /><testcase classname="tests.system.test_environment_contract" name="test_project_layout_is_expected" time="0.001" /><testcase classname="tests.ml_analysis.test_reporting" name="test_save_eval_report_html_and_json" time="0.008"><failure message="ValueError: If using all scalar values, you must pass an index">tmp_path = WindowsPath('C:/Users/hashimoto.ryohei/AppData/Local/Temp/pytest-of-hashimoto.ryohei/pytest-25/test_save_eval_report_html_and0')
+
+    def test_save_eval_report_html_and_json(tmp_path):
+        metrics = {"mae": 1.23, "rmse": 2.34, "smape": 3.45}
+        html_path = tmp_path / "eval_report.html"
+        json_path = tmp_path / "eval_report.json"
+    
+        save_eval_report_html(metrics, html_path)
+        save_eval_report_json(metrics, json_path)
+    
+        assert html_path.exists()
+        assert json_path.exists()
+    
+        html_text = html_path.read_text(encoding="utf-8")
+        assert "nf_loto eval report" in html_text
+    
+&gt;       data = pd.read_json(json_path)
+
+tests\ml_analysis\test_reporting.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\io\json\_json.py:815: in read_json
+    return json_reader.read()
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\io\json\_json.py:1025: in read
+    obj = self._get_object_parser(self.data)
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\io\json\_json.py:1051: in _get_object_parser
+    obj = FrameParser(json, **kwargs).parse()
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\io\json\_json.py:1187: in parse
+    self._parse()
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\io\json\_json.py:1402: in _parse
+    self.obj = DataFrame(
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\core\frame.py:778: in __init__
+    mgr = dict_to_mgr(data, index, columns, dtype=dtype, copy=copy, typ=manager)
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\core\internals\construction.py:503: in dict_to_mgr
+    return arrays_to_mgr(arrays, columns, index, dtype=dtype, typ=typ, consolidate=copy)
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\core\internals\construction.py:114: in arrays_to_mgr
+    index = _extract_index(arrays)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data = [1.23, 2.34, 3.45]
+
+    def _extract_index(data) -&gt; Index:
+        """
+        Try to infer an Index from the passed data, raise ValueError on failure.
+        """
+        index: Index
+        if len(data) == 0:
+            return default_index(0)
+    
+        raw_lengths = []
+        indexes: list[list[Hashable] | Index] = []
+    
+        have_raw_arrays = False
+        have_series = False
+        have_dicts = False
+    
+        for val in data:
+            if isinstance(val, ABCSeries):
+                have_series = True
+                indexes.append(val.index)
+            elif isinstance(val, dict):
+                have_dicts = True
+                indexes.append(list(val.keys()))
+            elif is_list_like(val) and getattr(val, "ndim", 1) == 1:
+                have_raw_arrays = True
+                raw_lengths.append(len(val))
+            elif isinstance(val, np.ndarray) and val.ndim &gt; 1:
+                raise ValueError("Per-column arrays must each be 1-dimensional")
+    
+        if not indexes and not raw_lengths:
+&gt;           raise ValueError("If using all scalar values, you must pass an index")
+E           ValueError: If using all scalar values, you must pass an index
+
+C:\Users\hashimoto.ryohei\Miniconda3\envs\kaiseki\Lib\site-packages\pandas\core\internals\construction.py:667: ValueError</failure></testcase><testcase classname="tests.ml_analysis.test_reporting" name="test_summarize_forecast_df_basic" time="0.002" /><testcase classname="tests.monitoring.test_prometheus_metrics" name="test_prometheus_metrics_functions_are_noop_without_prom_client" time="0.001" /><testcase classname="tests.monitoring.test_prometheus_metrics" name="test_prometheus_metrics_module_present" time="0.001" /><testcase classname="tests.monitoring.test_prometheus_metrics" name="test_prometheus_metrics_public_api_contains_expected_functions" time="0.001" /><testcase classname="tests.db.test_loto_pg_store_contract_extra" name="test_loto_pg_store_constants_and_helpers_present" time="0.003" /><testcase classname="tests.ml.test_model_runner" name="test_model_runner_module_present" time="0.001" /><testcase classname="tests.integration.test_feature_pipeline_integration" name="test_feature_pipeline_simple_integration" time="0.010" /></testsuite></testsuites>
